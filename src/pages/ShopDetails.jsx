@@ -9,9 +9,52 @@ export default function ShopDetails() {
   const { slug } = useParams();
   const [shop, setShop] = useState(null);
   const [products, setProducts] = useState([]);
+  const [sortedProducts, setSortedProducts] = useState([]);
+  const [sortType, setSortType] = useState('price-low-high'); // 'price-low-high', 'price-high-low', 'alphabetical-a-z', 'alphabetical-z-a'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [cartCount, setCartCount] = useState(0);
+
+  // Handle sorting
+  const handleSort = (type, productsToSort = null) => {
+    setSortType(type);
+    const productsList = productsToSort || products;
+    const sorted = [...productsList].sort((a, b) => {
+      if (type === 'price-low-high') {
+        // Sort by price (low to high)
+        const priceA = parseFloat(a.price) || 0;
+        const priceB = parseFloat(b.price) || 0;
+        if (priceA !== priceB) {
+          return priceA - priceB;
+        }
+        // If prices are equal, sort alphabetically
+        return (a.name || '').localeCompare(b.name || '');
+      } else if (type === 'price-high-low') {
+        // Sort by price (high to low)
+        const priceA = parseFloat(a.price) || 0;
+        const priceB = parseFloat(b.price) || 0;
+        if (priceA !== priceB) {
+          return priceB - priceA;
+        }
+        // If prices are equal, sort alphabetically
+        return (a.name || '').localeCompare(b.name || '');
+      } else if (type === 'alphabetical-a-z') {
+        // Sort alphabetically by name (A-Z)
+        return (a.name || '').localeCompare(b.name || '');
+      } else if (type === 'alphabetical-z-a') {
+        // Sort alphabetically by name (Z-A)
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      return 0;
+    });
+    setSortedProducts(sorted);
+  };
+
+  const handleAddToCart = (product, quantity) => {
+    console.log('Added to cart:', product.name, quantity);
+    setCartCount(prev => prev + quantity);
+    // TODO: Implement actual cart state
+  };
 
   useEffect(() => {
     const loadShopData = async () => {
@@ -31,6 +74,8 @@ export default function ShopDetails() {
         // 2. Fetch products for this shop
         const shopProducts = await getShopProducts(currentShop.product_sheet_id);
         setProducts(shopProducts);
+        // Apply default sort (by price low to high)
+        handleSort('price-low-high', shopProducts);
       } catch (err) {
         console.error(err);
         setError('Failed to load shop data');
@@ -41,12 +86,6 @@ export default function ShopDetails() {
 
     loadShopData();
   }, [slug]);
-
-  const handleAddToCart = (product, quantity) => {
-    console.log('Added to cart:', product.name, quantity);
-    setCartCount(prev => prev + quantity);
-    // TODO: Implement actual cart state
-  };
 
   if (loading) {
     return (
@@ -121,17 +160,24 @@ export default function ShopDetails() {
         <div className="toolbar">
           <h2>Our Products</h2>
           <div className="filters">
-            <button className="filter-btn">
-              Sort by Price <ChevronDown size={16} />
-            </button>
-            <button className="filter-btn">
-              Sort by Date <ChevronDown size={16} />
-            </button>
+            <div className="sort-dropdown">
+              <select 
+                className="sort-select"
+                value={sortType}
+                onChange={(e) => handleSort(e.target.value)}
+              >
+                <option value="price-low-high">Price: Low to High</option>
+                <option value="price-high-low">Price: High to Low</option>
+                <option value="alphabetical-a-z">Alphabetical: A-Z</option>
+                <option value="alphabetical-z-a">Alphabetical: Z-A</option>
+              </select>
+              <ChevronDown size={16} className="sort-icon" />
+            </div>
           </div>
         </div>
 
         <div className="product-grid">
-          {products.map(product => (
+          {sortedProducts.map(product => (
             <ProductCard 
               key={product.id} 
               product={product} 
@@ -266,16 +312,42 @@ export default function ShopDetails() {
           gap: 1rem;
         }
 
-        .filter-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 1rem;
+        .sort-dropdown {
+          position: relative;
+          display: inline-block;
+        }
+
+        .sort-select {
+          appearance: none;
+          padding: 0.5rem 2.5rem 0.5rem 1rem;
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: var(--radius-md);
-          color: var(--text-secondary);
+          color: var(--text-primary);
           font-size: 0.9rem;
+          cursor: pointer;
+          transition: all 0.2s;
+          min-width: 180px;
+        }
+
+        .sort-select:hover {
+          background: var(--background);
+          border-color: var(--primary);
+        }
+
+        .sort-select:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .sort-icon {
+          position: absolute;
+          right: 0.75rem;
+          top: 50%;
+          transform: translateY(-50%);
+          pointer-events: none;
+          color: var(--text-secondary);
         }
 
         .product-grid {

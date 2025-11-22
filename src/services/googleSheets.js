@@ -7,7 +7,16 @@ const fetchCSV = async (url) => {
       download: true,
       header: true,
       complete: (results) => {
-        resolve(results.data);
+        // Filter out empty rows (rows where all values are empty or undefined)
+        const filteredData = results.data.filter(row => {
+          // Check if at least one key has a non-empty value
+          return Object.values(row).some(value => 
+            value !== undefined && 
+            value !== null && 
+            String(value).trim() !== ''
+          );
+        });
+        resolve(filteredData);
       },
       error: (error) => {
         reject(error);
@@ -57,7 +66,9 @@ export const getShops = async () => {
   
   if (sheetUrl) {
     try {
-      return await fetchCSV(sheetUrl);
+      const shops = await fetchCSV(sheetUrl);
+      // Additional filter to ensure we have valid shop data with required fields
+      return shops.filter(shop => shop.name && shop.slug);
     } catch (error) {
       console.error("Error fetching master sheet:", error);
       return [];
@@ -76,7 +87,16 @@ export const getShopProducts = async (sheetId) => {
   // Check if it's a mock ID
   if (sheetId.startsWith('mock-sheet-')) {
      await new Promise(resolve => setTimeout(resolve, 500));
-     return MOCK_PRODUCTS[sheetId] || [];
+     const mockProducts = MOCK_PRODUCTS[sheetId] || [];
+     // Sort mock products by price then alphabetically
+     return mockProducts.sort((a, b) => {
+       const priceA = parseFloat(a.price) || 0;
+       const priceB = parseFloat(b.price) || 0;
+       if (priceA !== priceB) {
+         return priceA - priceB;
+       }
+       return (a.name || '').localeCompare(b.name || '');
+     });
   }
 
   // Assuming sheetId is a full URL or a Google Sheet ID. 
@@ -90,7 +110,21 @@ export const getShopProducts = async (sheetId) => {
   }
 
   try {
-    return await fetchCSV(url);
+    const products = await fetchCSV(url);
+    // Filter out products without required fields and sort by price then alphabetically
+    const validProducts = products.filter(product => 
+      product.name && product.price
+    );
+    // Sort by price (ascending) then alphabetically by name
+    return validProducts.sort((a, b) => {
+      const priceA = parseFloat(a.price) || 0;
+      const priceB = parseFloat(b.price) || 0;
+      if (priceA !== priceB) {
+        return priceA - priceB;
+      }
+      // If prices are equal, sort alphabetically by name
+      return (a.name || '').localeCompare(b.name || '');
+    });
   } catch (error) {
     console.error("Error fetching product sheet:", error);
     return [];
